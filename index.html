@@ -44,7 +44,7 @@
     ];
 
     let urls = [];
-    let urlIndex = 0;
+    let urlIndex = localStorage.getItem('urlIndex') ? parseInt(localStorage.getItem('urlIndex')) : 0; // 从localStorage获取URL索引
 
     fetch('urls.json')
         .then(response => response.json())
@@ -118,6 +118,7 @@
         if (urls.length > 0 && urlIndex < urls.length) {
             searchUrl = urls[urlIndex];
             urlIndex++;
+            localStorage.setItem('urlIndex', urlIndex.toString()); // 更新urlIndex到localStorage
         } else {
             if (searchToggle) {
                 searchUrl = `https://www.cn.bing.com/search?q=${encodeURIComponent(word)}&form=${randomString}&cvid=${randomCvid}`;
@@ -149,8 +150,13 @@
             let countdown = Math.ceil(delay / 1000);
             const countdownElement = document.getElementById('countdown-timer');
 
-            nextSearchWord = await fetchSearchWords();
-            displaySearchWord(nextSearchWord);
+            if (urls.length > 0 && urlIndex < urls.length) {
+                nextSearchWord = ''; // urls.json 文件中使用的URL不需要搜索词
+                displaySearchWord('使用自定义URL');
+            } else {
+                nextSearchWord = await fetchSearchWords();
+                displaySearchWord(nextSearchWord);
+            }
             countdownElement.textContent = countdown;
 
             countdownIntervalId = setInterval(() => {
@@ -193,24 +199,16 @@
             }, delay);
         }
 
-        startCountdown(); // 开始第一次搜索倒计时
+        startCountdown(); // 开始倒计时进行搜索
     }
 
     function stopAutoSearch() {
-        clearInterval(initialCountdownInterval);
-        clearInterval(countdownIntervalId);
         clearTimeout(countdownTimeoutId);
-        document.getElementById('countdown-timer').textContent = '已停止';
+        clearInterval(countdownIntervalId);
         isSearching = false; // 标记搜索已停止
-
-        // 清除页面加载时的初始化倒计时
-        if (countdownWorker) {
-            countdownWorker.postMessage({ type: 'stop' });
-        }
     }
 
-    // 页面加载完成后开始初始化
-    document.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', (event) => {
         initializeCountdown(); // 初始化倒计时
         detectDevice(); // 检测设备类型
     });
@@ -262,6 +260,7 @@
     document.getElementById("deleteDataButton").addEventListener("click", function() {
         localStorage.removeItem("totalSearches");
         localStorage.removeItem("isException");
+        localStorage.removeItem('urlIndex'); // 删除URL索引
         document.getElementById('total-searches').textContent = '0';
         document.getElementById('completed-searches').textContent = '0';
         setTimeout(() => {
