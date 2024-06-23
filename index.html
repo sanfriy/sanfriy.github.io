@@ -3,40 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>随机一言</title>
-    <script>
-        async function fetchUrls() {
-            const response = await fetch('urls.json');
-            const data = await response.json();
-            return data.urls;
-        }
-
-        async function openUrlsSequentially(urls) {
-            for (let i = 0; i < urls.length; i++) {
-                const iframe = document.createElement('iframe');
-                iframe.src = urls[i];
-                iframe.style.display = 'none';
-                document.body.appendChild(iframe);
-
-                await new Promise(resolve => {
-                    const randomDelay = Math.floor(Math.random() * 9000) + 9000; // 9-18 秒
-                    setTimeout(() => {
-                        resolve();
-                    }, randomDelay);
-                });
-            }
-        }
-
-        async function initializeUrls() {
-            if (!localStorage.getItem('tasksCompleted')) {
-                const urls = await fetchUrls();
-                await openUrlsSequentially(urls);
-                localStorage.setItem('tasksCompleted', 'true');
-                document.getElementById('countdown-timer').textContent = '正在完成今日任务';
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', initializeUrls);
-    </script>
 </head>
 <body>
 <main>
@@ -76,6 +42,18 @@
         'https://api.xygeng.cn/one',
         'https://api.xygeng.cn/openapi/one'
     ];
+
+    let urls = [];
+    let urlIndex = 0;
+
+    fetch('urls.json')
+        .then(response => response.json())
+        .then(data => {
+            urls = data.urls;
+        })
+        .catch(error => {
+            console.error('Error fetching URLs:', error);
+        });
 
     // 页面加载时显示已完成的总搜索次数
     document.getElementById('total-searches').textContent = totalSearches;
@@ -137,13 +115,18 @@
         const randomCvid = generateRandomString(32);
         let searchUrl;
 
-        if (searchToggle) {
-            searchUrl = `https://www.cn.bing.com/search?q=${encodeURIComponent(word)}&form=${randomString}&cvid=${randomCvid}`;
+        if (urls.length > 0 && urlIndex < urls.length) {
+            searchUrl = urls[urlIndex];
+            urlIndex++;
         } else {
-            searchUrl = `https://www.cn.bing.com/search?q=${encodeURIComponent(word)}&cvid=${randomCvid}&FORM=${randomString}`;
+            if (searchToggle) {
+                searchUrl = `https://www.cn.bing.com/search?q=${encodeURIComponent(word)}&form=${randomString}&cvid=${randomCvid}`;
+            } else {
+                searchUrl = `https://www.cn.bing.com/search?q=${encodeURIComponent(word)}&cvid=${randomCvid}&FORM=${randomString}`;
+            }
+            searchToggle = !searchToggle; // 切换 URL 格式以备下一次搜索
         }
 
-        searchToggle = !searchToggle; // 切换 URL 格式以备下一次搜索
         addSearchHistory(word, searchUrl);
     }
 
@@ -195,17 +178,17 @@
                     stopAutoSearch();
                     localStorage.removeItem('totalSearches');
                     setTimeout(function(){
-                                          window.location.href = 'http://www.bing.com';
-                                         }, 6000); 
+                        window.location.href = 'http://www.bing.com';
+                    }, 6000);
+                } else {
+                    if (completedSearches % 4 === 0) {// 检查是否完成了4次搜索
+                        // 在完成每4次搜索后设置延迟，然后刷新页面
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 8000); // 设置适当的延迟时间，这里示例为 8000 毫秒（8秒）
                     } else {
-                            if (completedSearches % 4 === 0) {// 检查是否完成了4次搜索
-                                // 在完成每4次搜索后设置延迟，然后刷新页面
-                                setTimeout(() => {
-                                    window.location.reload();
-                                }, 8000); // 设置适当的延迟时间，这里示例为 8000 毫秒（8秒）
-                            } else {
-                                    startCountdown(); // 继续搜索 
-                                }
+                        startCountdown(); // 继续搜索
+                    }
                 }
             }, delay);
         }
@@ -279,7 +262,6 @@
     document.getElementById("deleteDataButton").addEventListener("click", function() {
         localStorage.removeItem("totalSearches");
         localStorage.removeItem("isException");
-        localStorage.removeItem("tasksCompleted");
         document.getElementById('total-searches').textContent = '0';
         document.getElementById('completed-searches').textContent = '0';
         setTimeout(() => {
@@ -303,7 +285,7 @@
             isException = false;
             localStorage.setItem('isException', 'false');
             this.textContent = '异常模式';
-            this.title = '点击切换到异常模式'; 
+            this.title = '点击切换到异常模式';
             countdownMin = 60;
             countdownMax = 120;
         }
